@@ -7,3 +7,5 @@ local.properties
 *.tar
 __pycache__/
 *.pyc
+
+.kotlin/

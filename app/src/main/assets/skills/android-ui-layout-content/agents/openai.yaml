@@ -1,0 +1,4 @@
+interface:
+  display_name: "Android layout and content"
+  short_description: "Compose adaptive layouts, panes, insets, and content"
+  default_prompt: "Use $android-ui-layout-content to review the relevant Android UI and propose concrete, verifiable improvements."

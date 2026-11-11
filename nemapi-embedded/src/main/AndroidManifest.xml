@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <activity android:name="com.nemap.android.MainActivity" android:exported="false" android:theme="@style/NemApiTheme" android:windowSoftInputMode="adjustResize" />
+    <activity android:name="com.nemap.android.BrowserActivity" android:exported="false" android:theme="@style/NemApiTheme" android:configChanges="orientation|screenSize|keyboardHidden" android:windowSoftInputMode="adjustResize" />
+  </application>
+</manifest>

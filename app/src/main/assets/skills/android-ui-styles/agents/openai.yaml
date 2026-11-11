@@ -1,0 +1,4 @@
+interface:
+  display_name: "Android styles"
+  short_description: "Shape Android themes, color, type, and visual roles"
+  default_prompt: "Use $android-ui-styles to review the relevant Android UI and propose concrete, verifiable improvements."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Android components"
+  short_description: "Choose components, states, and accessible interactions"
+  default_prompt: "Use $android-ui-components to review the relevant Android UI and propose concrete, verifiable improvements."

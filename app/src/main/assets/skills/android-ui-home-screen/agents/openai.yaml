@@ -1,0 +1,4 @@
+interface:
+  display_name: "Android system surfaces"
+  short_description: "Design notifications, live updates, and picture-in-picture"
+  default_prompt: "Use $android-ui-home-screen to review the relevant Android UI and propose concrete, verifiable improvements."

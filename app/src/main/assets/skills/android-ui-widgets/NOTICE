@@ -1,0 +1,24 @@
+Android Design Skills
+Copyright 2026 Sergio-CVM00
+
+This is an independent, unofficial collection of agent skills.
+
+Portions of the guidance are adapted and synthesized from Android Developers
+mobile UI design documentation, created and shared by Google and the Android
+Open Source Project. Source pages are linked in the relevant reference files
+and inventoried in docs/coverage.json, reviewed on 2026-10-04.
+
+The adaptation reorganizes design guidance into task-oriented agent workflows,
+decision tables, checks, and examples. Authored heuristics and scenarios are
+identified in context. This collection does not reproduce the complete manuals.
+
+Android Developers documentation licensing:
+https://developer.android.com/license
+That page identifies documentation and sample code as Apache 2.0 unless
+otherwise noted, and other site content as Creative Commons Attribution 2.5.
+Any separately licensed linked material remains under its own terms and is
+not relicensed by this repository.
+
+No upstream screenshots, videos, Figma kits, logos, or icon assets are included.
+Android, Google, Material, and other product names are their owners' marks.
+No endorsement or affiliation is implied.

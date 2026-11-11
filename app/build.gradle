@@ -10,8 +10,9 @@ android {
         applicationId 'com.nemesis.apk'
         minSdk 26
         targetSdk 28
-        versionCode 1
-        versionName '0.1.0-prototype'
+        versionCode 5
+        versionName '0.1.0-beta.4'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         ndk { abiFilters 'x86', 'armeabi-v7a' }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
@@ -23,3 +24,13 @@ chaquopy {
         pip { install 'requests==2.32.4' }
     }
 }
+dependencies {
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    implementation project(':nemapi-embedded')
+    implementation 'com.github.mwiede:jsch:0.2.20'
+    implementation 'org.bouncycastle:bcprov-jdk18on:1.80'
+    implementation 'io.noties.markwon:core:4.6.2'
+    implementation 'io.noties.markwon:ext-tables:4.6.2'
+}
+android { packaging { resources { excludes += ['META-INF/versions/**', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA'] } } }

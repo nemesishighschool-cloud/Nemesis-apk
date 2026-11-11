@@ -1,0 +1,4 @@
+interface:
+  display_name: "Android UI design"
+  short_description: "Plan and review Android UI across design domains"
+  default_prompt: "Use $android-ui-design to review the relevant Android UI and propose concrete, verifiable improvements."

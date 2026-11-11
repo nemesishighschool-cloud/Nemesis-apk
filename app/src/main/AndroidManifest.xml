@@ -1,6 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.INTERNET" />
-  <application android:label="NEMESIS prototype" android:usesCleartextTraffic="true" android:theme="@android:style/Theme.Material.NoActionBar">
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+  <application android:name=".NemesisApplication" android:allowBackup="false" android:label="NEMESIS" android:icon="@drawable/nemesis_logo" android:roundIcon="@drawable/nemesis_logo" android:usesCleartextTraffic="true" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+    <service android:name=".NemesisService" android:exported="false" />
+    <service android:name=".RuntimeRecoveryJob" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="true" />
     <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
       <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
     </activity>

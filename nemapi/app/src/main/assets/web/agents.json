@@ -1,0 +1,47 @@
+{
+  "agents": [
+    {
+      "id": "nemesis",
+      "name": "Nemesis",
+      "vendor": "teteekoue · NEMESIS-AGENT",
+      "description": "Intégration réservée au projet NEMESIS Android.",
+      "setup": "Dans le config.yaml de NEMESIS : section « nemapi » (host 127.0.0.1, port 8090, model deepseek-chat). NemApi reconnaît l'agent via l'en-tête X-NemApi-Agent: nemesis, ou via son prompt système.",
+      "homepage": "https://github.com/teteekoue/NEMESIS-AGENT",
+      "snippet": "# config.yaml de NEMESIS\nprovider:\n  type: nemapi\n  model: deepseek-chat\n\nnemapi:\n  url: \"{base}\"\n  # token: nemapi-token…   # si la protection API est active\n  # agent: nemesis        # facultatif : en-tête X-NemApi-Agent",
+      "enabled": true,
+      "features": [
+        {
+          "id": "persistent_chat",
+          "label": "Discussion unique",
+          "tag": "discussion",
+          "description": "La requête ne déclenche jamais l'ouverture d'une nouvelle discussion : l'URL du chat web reste la même et l'agent continue dans la discussion ouverte.",
+          "enabled": true
+        },
+        {
+          "id": "native_tool_calls",
+          "label": "Appels d'outils natifs",
+          "tag": "outils",
+          "description": "Les appels d'outils écrits par l'agent (JSON dans un bloc ```json) sont renvoyés au format OpenAI tool_calls au lieu de rester dans le texte.",
+          "enabled": true
+        }
+      ],
+      "identifiers": [
+        {
+          "kind": "header",
+          "value": "X-NemApi-Agent: nemesis",
+          "note": "recommandé — reconnu à chaque requête"
+        },
+        {
+          "kind": "user-agent",
+          "value": "nemesis-agent…",
+          "note": "automatique"
+        },
+        {
+          "kind": "prompt",
+          "value": "You are **NEMESIS**",
+          "note": "première requête seulement"
+        }
+      ]
+    }
+  ]
+}

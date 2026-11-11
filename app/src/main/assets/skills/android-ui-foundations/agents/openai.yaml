@@ -1,0 +1,4 @@
+interface:
+  display_name: "Android foundations"
+  short_description: "Apply accessibility and Android platform conventions"
+  default_prompt: "Use $android-ui-foundations to review the relevant Android UI and propose concrete, verifiable improvements."

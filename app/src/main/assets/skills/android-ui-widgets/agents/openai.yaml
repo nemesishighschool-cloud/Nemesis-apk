@@ -1,0 +1,4 @@
+interface:
+  display_name: "Android widgets"
+  short_description: "Design useful, adaptable Android launcher widgets"
+  default_prompt: "Use $android-ui-widgets to review the relevant Android UI and propose concrete, verifiable improvements."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Android interaction patterns"
+  short_description: "Design Android journeys, navigation, and recovery"
+  default_prompt: "Use $android-ui-patterns to review the relevant Android UI and propose concrete, verifiable improvements."
