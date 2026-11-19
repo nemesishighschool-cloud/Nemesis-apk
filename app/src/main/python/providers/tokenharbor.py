@@ -114,11 +114,17 @@ class TokenHarborProvider(BaseProvider):
         else:
             content = send_content
 
-        # Historique complet (TokenHarbor est stateless)
-        history = list(self._conversation)
-        if system_prefix and not history:
-            history.append({"role": "system", "content": system_prefix.strip()})
-        messages = history + [{"role": send_role, "content": content}]
+        # TokenHarbor est STATELESS : le system prompt doit toujours etre
+        # present en tete, a chaque appel, quel que soit l'historique.
+        messages = []
+        sp = (system_prefix or "").strip()
+        if sp:
+            messages.append({"role": "system", "content": sp})
+        for m in self._conversation:
+            if m.get("role") == "system":
+                continue
+            messages.append({"role": m["role"], "content": m["content"]})
+        messages.append({"role": send_role, "content": content})
 
         payload = {
             "model": self.model,

@@ -2014,7 +2014,9 @@ def _send(sid, text, attachments_json='[]'):
         _set_live(sid, '')
         next_files = []
         duration_ms = max(0, int((time.monotonic() - started) * 1000))
-        prefix = ''
+        # TokenHarbor est stateless : conserver le system prompt a chaque tour.
+        if _pcfg.get('type') != 'tokenharbor':
+            prefix = ''
         if not result.get('success'):
             error = str(result.get('error', 'Erreur NemApi'))
             partial = getattr(provider, 'partial_text', '')
