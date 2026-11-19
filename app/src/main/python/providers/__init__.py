@@ -4,9 +4,11 @@
 from typing import Dict, Any
 from providers.base import BaseProvider
 from providers.nemapi_v3 import NemapiV3Provider
+from providers.tokenharbor import TokenHarborProvider
 
 PROVIDER_MAP = {
     "nemapi": NemapiV3Provider,
+    "tokenharbor": TokenHarborProvider,
 }
 
 

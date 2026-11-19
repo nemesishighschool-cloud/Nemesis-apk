@@ -1485,8 +1485,44 @@ menu.addView(search);menu.addView(gap(6))
         body.addView(settingCard("Environnements Linux", "Alpine, Debian ou SSH distant pour les commandes et le terminal interactif.") { showExecutionEnvironments() }); body.addView(gap(10))
         val accessibility=AndroidComputerBridge.accessibilityEnabled()
         body.addView(settingCard("Contrôle des applications Android", if(accessibility) "Accessibilité activée · outils d’interface disponibles en Work et Code." else "Facultatif · autorisez NEMESIS dans Accessibilité pour les gestes et la lecture de l’interface.") { AndroidComputerBridge.openAccessibilitySettings() }); body.addView(gap(22))
+        body.addView(label("MOTEUR PRINCIPAL",11f,muted,true)); body.addView(gap(8))
+        val prov = runCatching { JSONObject(py.callAttr("provider_get_config").toString()) }.getOrElse { JSONObject().put("type","nemapi") }
+        val activeType = prov.optString("type","nemapi")
+        fun applyProvider(type:String) {
+            runCatching { py.callAttr("provider_set_type", type) }
+            showSettings()
+        }
+        // Ligne NemApi : switch + carte
+        val nemapiRow = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; setPadding(dp(16),dp(12),dp(16),dp(12)); background=shape(white,16,line) }
+        val nemapiLabels = column().apply { addView(label("NemApi",15f,strong,true)); addView(gap(4)); addView(label(if(activeType=="nemapi") "Moteur actif · DOM DeepSeek" else "Connexion DeepSeek et paramètres intégrés",13f,muted)) }
+        nemapiRow.addView(nemapiLabels, LinearLayout.LayoutParams(0,-2,1f))
+        val nemapiSwitch = Switch(this).apply {
+            isChecked = activeType=="nemapi"; contentDescription="Activer le moteur NemApi"
+            setOnCheckedChangeListener { _, checked -> if(checked && activeType!="nemapi") applyProvider("nemapi") else if(!checked && activeType=="nemapi") toast("NemApi reste le moteur par défaut ; activez TokenHarbor pour basculer.") }
+        }
+        nemapiRow.addView(nemapiSwitch); body.addView(nemapiRow); body.addView(gap(6))
+        body.addView(settingCard("Ouvrir les paramètres NemApi","Connexion DeepSeek, DOM, redémarrage du moteur.") { startActivity(Intent(this, com.nemap.android.MainActivity::class.java)) }); body.addView(gap(10))
+        // Ligne TokenHarbor : switch + carte
+        val th = prov.optJSONObject("tokenharbor") ?: JSONObject()
+        val thHas = th.optBoolean("has_keys", false)
+        val thRow = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; setPadding(dp(16),dp(12),dp(16),dp(12)); background=shape(white,16,line) }
+        val thLabels = column().apply { addView(label("TokenHarbor",15f,strong,true)); addView(gap(4)); addView(label(if(activeType=="tokenharbor") "Moteur actif · ${(th.optJSONArray("keys")?.length()?:0)} clé(s)" else if(thHas) "Multi-clés · ${(th.optJSONArray("keys")?.length()?:0)} clé(s) configurée(s)" else "Aucune clé · ouvrez la configuration",13f,muted)) }
+        thRow.addView(thLabels, LinearLayout.LayoutParams(0,-2,1f))
+        val thSwitch = Switch(this).apply {
+            isChecked = activeType=="tokenharbor"; contentDescription="Activer le moteur TokenHarbor"
+            setOnCheckedChangeListener { _, checked ->
+                if(checked) {
+                    if(!thHas) { toast("Configurez d'abord au moins une clé TokenHarbor."); isChecked=false; return@setOnCheckedChangeListener }
+                    applyProvider("tokenharbor")
+                } else if(activeType=="tokenharbor") {
+                    toast("Activez NemApi pour rebasculer sur le moteur DOM."); isChecked=true
+                }
+            }
+        }
+        thRow.addView(thSwitch); body.addView(thRow); body.addView(gap(6))
+        body.addView(settingCard("Configurer TokenHarbor","Clés API, sélection du modèle et routage automatique sur quota.") { showTokenHarborSettings() }); body.addView(gap(10))
+        body.addView(settingCard("Redémarrer le moteur DOM","Si le moteur ne répond plus après une longue session. Cookies et discussions conservés, aucun message renvoyé.") { restartDomEngine() }); body.addView(gap(10))
         body.addView(label("CONNEXION",11f,muted,true)); body.addView(gap(8))
-        body.addView(settingCard("Moteur · NemApi","Connexion DeepSeek et paramètres intégrés à NEMESIS.") { startActivity(Intent(this, com.nemap.android.MainActivity::class.java)) }); body.addView(gap(10))
         body.addView(settingCard("Redémarrer le moteur DOM","Si le moteur ne répond plus après une longue session. Cookies et discussions conservés, aucun message renvoyé.") { restartDomEngine() }); body.addView(gap(10))
         body.addView(settingCard("Connecteurs","Google Workspace pour Work; GitHub via gh/git dans le shell Linux. Aucun jeton GitHub stocké dans l’APK.") { showConnectors() }); body.addView(gap(10))
         body.addView(settingCard("GitHub dans l’environnement Linux", "Pour Code, utilisez gh/git dans Alpine, Debian ou le shell SSH. Authentifiez-vous depuis ce terminal; NEMESIS ne conserve aucun PAT GitHub.") { showExecutionEnvironments() }); body.addView(gap(10))
@@ -1902,6 +1938,90 @@ menu.addView(search);menu.addView(gap(6))
                 }); body.addView(gap(8))
             }
             body.addView(action("Effacer la configuration",Color.TRANSPARENT,danger) { SshBridge.clear(); dialog.dismiss(); showSettings() })
+        }
+    }
+    private fun showTokenHarborSettings() {
+        val cfg = runCatching { JSONObject(py.callAttr("provider_get_config").toString()) }.getOrElse { JSONObject() }
+        val th = cfg.optJSONObject("tokenharbor") ?: JSONObject()
+        val baseUrl = th.optString("base_url", "https://tokenharbor.ai/v1")
+        val currentModel = th.optString("model", "")
+        val keysArr = th.optJSONArray("keys") ?: org.json.JSONArray()
+        val maskedArr = th.optJSONArray("keys_masked") ?: org.json.JSONArray()
+
+        sheet("TokenHarbor", "Passerelle OpenAI-compatible multi-modèles. Contrairement à NemApi, chaque requête renvoie tout l'historique de la discussion. Plusieurs clés permettent le routage automatique quand le quota d'une clé est épuisé (429).") { body, dialog ->
+            body.addView(label("URL de base",13f,muted,true)); body.addView(gap(6))
+            val urlField = formField("https://tokenharbor.ai/v1", baseUrl); body.addView(urlField); body.addView(gap(12))
+
+            body.addView(label("Clés API (${keysArr.length()})",13f,muted,true)); body.addView(gap(6))
+            if(keysArr.length() == 0) {
+                body.addView(label("Aucune clé enregistrée.",13f,muted)); body.addView(gap(6))
+            } else {
+                for(i in 0 until keysArr.length()) {
+                    val row = LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; gravity=Gravity.CENTER_VERTICAL; setPadding(dp(10),dp(8),dp(10),dp(8)); background=shape(pale,10,line) }
+                    row.addView(label(maskedArr.optString(i, "…"),13f,strong), LinearLayout.LayoutParams(0,-2,1f))
+                    row.addView(action("Supprimer",Color.TRANSPARENT,danger) {
+                        val kept = org.json.JSONArray()
+                        val allKeys = th.optJSONArray("keys") ?: org.json.JSONArray()
+                        for(j in 0 until allKeys.length()) if(j != i) kept.put(allKeys.optString(j))
+                        try {
+                            val res = JSONObject(py.callAttr("tokenharbor_save_config", kept.toString(), currentModel, urlField.text.toString()).toString())
+                            if(res.optBoolean("ok")) { dialog.dismiss(); showTokenHarborSettings() } else toast(res.optString("error","Suppression impossible"))
+                        } catch(e:Exception) { toast("Erreur : ${e.message}") }
+                    })
+                    body.addView(row); body.addView(gap(6))
+                }
+            }
+            body.addView(gap(6))
+            body.addView(label("Ajouter une clé",13f,muted,true)); body.addView(gap(6))
+            val newKey = formField("thk_live_…", secret=true); body.addView(newKey); body.addView(gap(12))
+
+            body.addView(label("Modèle actuel",13f,muted,true)); body.addView(gap(4))
+            body.addView(label(if(currentModel.isBlank()) "(non défini)" else currentModel,14f,primary,true)); body.addView(gap(10))
+
+            body.addView(action("Charger les modèles disponibles",pale,primary) {
+                toast("Chargement des modèles…")
+                Thread {
+                    val result = try { JSONObject(py.callAttr("tokenharbor_list_models").toString()) } catch(e:Exception) { JSONObject().put("ok",false).put("error",e.message) }
+                    runOnUiThread {
+                        if(isFinishing || isDestroyed) return@runOnUiThread
+                        if(!result.optBoolean("ok")) { toast(result.optString("error","Chargement impossible")); return@runOnUiThread }
+                        val models = result.optJSONArray("models") ?: org.json.JSONArray()
+                        val ids = (0 until models.length()).map { models.optJSONObject(it)?.optString("id","") ?: "" }.filter { it.isNotBlank() }
+                        if(ids.isEmpty()) { toast("Aucun modèle retourné"); return@runOnUiThread }
+                        sheet("Sélection du modèle","Modèle TokenHarbor actif pour toutes les discussions.") { b2, d2 ->
+                            ids.forEach { id ->
+                                b2.addView(action(id, if(id==currentModel) pale else Color.TRANSPARENT, primary) {
+                                    val allKeys = th.optJSONArray("keys") ?: org.json.JSONArray()
+                                    try {
+                                        val res = JSONObject(py.callAttr("tokenharbor_save_config", allKeys.toString(), id, urlField.text.toString()).toString())
+                                        if(res.optBoolean("ok")) { d2.dismiss(); dialog.dismiss(); showTokenHarborSettings(); toast("Modèle : $id") } else toast(res.optString("error","Échec"))
+                                    } catch(e:Exception) { toast("Erreur : ${e.message}") }
+                                }); b2.addView(gap(4))
+                            }
+                        }
+                    }
+                }.start()
+            }); body.addView(gap(10))
+
+            body.addView(action("Tester la connexion",pale,primary) {
+                toast("Test TokenHarbor…")
+                Thread {
+                    val result = try { JSONObject(py.callAttr("tokenharbor_test_connection").toString()) } catch(e:Exception) { JSONObject().put("ok",false).put("error",e.message) }
+                    runOnUiThread { if(!isFinishing && !isDestroyed) toast(if(result.optBoolean("ok")) "Connexion TokenHarbor : OK" else result.optString("error","Connexion impossible")) }
+                }.start()
+            }); body.addView(gap(10))
+
+            body.addView(action("Enregistrer",primary,white) {
+                try {
+                    val allKeys = th.optJSONArray("keys") ?: org.json.JSONArray()
+                    val updated = org.json.JSONArray()
+                    for(j in 0 until allKeys.length()) updated.put(allKeys.optString(j))
+                    val nk = newKey.text.toString().trim()
+                    if(nk.isNotBlank()) updated.put(nk)
+                    val res = JSONObject(py.callAttr("tokenharbor_save_config", updated.toString(), currentModel, urlField.text.toString()).toString())
+                    if(res.optBoolean("ok")) { dialog.dismiss(); showSettings(); toast("Configuration TokenHarbor enregistrée") } else toast(res.optString("error","Échec enregistrement"))
+                } catch(e:Exception) { toast("Erreur : ${e.message}") }
+            }); body.addView(gap(8))
         }
     }
     private fun toast(message:String) { Toast.makeText(this,message.take(300),Toast.LENGTH_LONG).show() }

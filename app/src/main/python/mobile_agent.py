@@ -300,10 +300,39 @@ def pin_session(sid, pinned):
         return _data({'ok': row.rowcount > 0})
 
 
+def _get_provider_config():
+    """Lit la section provider depuis preferences (JSON), avec defaut NemApi."""
+    with _db() as db:
+        row = db.execute("SELECT value FROM preferences WHERE key='provider_config'").fetchone()
+    default = {'type': 'nemapi', 'tokenharbor': {'keys': [], 'model': '', 'base_url': 'https://tokenharbor.ai/v1'}}
+    if not row or not row['value']:
+        return default
+    try:
+        cfg = json.loads(row['value'])
+    except Exception:
+        return default
+    if not isinstance(cfg, dict):
+        return default
+    cfg.setdefault('type', 'nemapi')
+    th = cfg.setdefault('tokenharbor', {})
+    th.setdefault('keys', [])
+    th.setdefault('model', '')
+    th.setdefault('base_url', 'https://tokenharbor.ai/v1')
+    return cfg
+
+
+def _save_provider_config(cfg):
+    with _db() as db:
+        db.execute("INSERT OR REPLACE INTO preferences(key,value) VALUES('provider_config',?)",
+                   (json.dumps(cfg, ensure_ascii=False),))
+
+
 def get_preferences():
     with _db() as db:
         values = {r['key']: r['value'] for r in db.execute('SELECT key,value FROM preferences')}
-    return _data({'custom_instructions': values.get('custom_instructions',''), 'memory_enabled': values.get('memory_enabled','1') == '1'})
+    return _data({'custom_instructions': values.get('custom_instructions',''),
+                  'memory_enabled': values.get('memory_enabled','1') == '1',
+                  'provider': _get_provider_config()})
 
 
 def save_preferences(instructions, memory_enabled):
@@ -313,6 +342,85 @@ def save_preferences(instructions, memory_enabled):
         db.execute('INSERT OR REPLACE INTO preferences(key,value) VALUES(?,?)', ('custom_instructions',instructions))
         db.execute('INSERT OR REPLACE INTO preferences(key,value) VALUES(?,?)', ('memory_enabled','1' if memory_enabled else '0'))
     return _data({'ok':True})
+
+
+def provider_get_config():
+    """Retourne la configuration provider (clés TokenHarbor masquées)."""
+    cfg = _get_provider_config()
+    th = dict(cfg.get('tokenharbor') or {})
+    keys = th.get('keys') or []
+    th['keys'] = keys
+    th['keys_masked'] = [(_mask_key(k)) for k in keys]
+    th['has_keys'] = len(keys) > 0
+    return _data({'ok': True, 'type': cfg.get('type', 'nemapi'), 'tokenharbor': th})
+
+
+def _mask_key(k):
+    k = str(k)
+    if len(k) <= 12:
+        return k[:4] + '…' + k[-2:] if len(k) > 6 else '…'
+    return k[:10] + '…' + k[-4:]
+
+
+def provider_set_type(ptype):
+    ptype = str(ptype).strip().lower()
+    if ptype not in ('nemapi', 'tokenharbor'):
+        return _data({'ok': False, 'error': 'Provider inconnu : ' + ptype})
+    cfg = _get_provider_config()
+    cfg['type'] = ptype
+    _save_provider_config(cfg)
+    return _data({'ok': True, 'type': ptype})
+
+
+def tokenharbor_save_config(keys_json, model, base_url):
+    """Enregistre la config TokenHarbor. keys_json = liste JSON de clés."""
+    try:
+        keys = json.loads(keys_json) if isinstance(keys_json, str) else list(keys_json or [])
+    except Exception:
+        return _data({'ok': False, 'error': 'Format de clés invalide'})
+    if not isinstance(keys, list):
+        return _data({'ok': False, 'error': 'Format de clés invalide'})
+    clean = []
+    for k in keys:
+        s = str(k).strip()
+        if not s:
+            continue
+        if not s.startswith('thk_'):
+            return _data({'ok': False, 'error': 'Clé TokenHarbor invalide (doit commencer par thk_live_…)'})
+        clean.append(s)
+    model = str(model or '').strip()
+    base_url = str(base_url or 'https://tokenharbor.ai/v1').strip().rstrip('/')
+    if not base_url.startswith('http'):
+        return _data({'ok': False, 'error': 'URL TokenHarbor invalide'})
+    cfg = _get_provider_config()
+    cfg['tokenharbor'] = {'keys': clean, 'model': model, 'base_url': base_url}
+    _save_provider_config(cfg)
+    return _data({'ok': True, 'count': len(clean)})
+
+
+def tokenharbor_list_models():
+    """Interroge /v1/models avec la première clé disponible."""
+    from providers.tokenharbor import TokenHarborProvider
+    cfg = _get_provider_config()
+    th = cfg.get('tokenharbor') or {}
+    if not th.get('keys'):
+        return _data({'ok': False, 'error': 'Aucune clé TokenHarbor enregistrée'})
+    prov = TokenHarborProvider({'provider': {'type': 'tokenharbor', **th}})
+    models = prov.list_models()
+    if not models:
+        return _data({'ok': False, 'error': 'Impossible de charger les modèles (clé invalide ou réseau)'})
+    return _data({'ok': True, 'models': models})
+
+
+def tokenharbor_test_connection():
+    from providers.tokenharbor import TokenHarborProvider
+    cfg = _get_provider_config()
+    th = cfg.get('tokenharbor') or {}
+    if not th.get('keys'):
+        return _data({'ok': False, 'error': 'Aucune clé TokenHarbor enregistrée'})
+    prov = TokenHarborProvider({'provider': {'type': 'tokenharbor', **th}})
+    ok = prov.test_connection()
+    return _data({'ok': ok, 'error': '' if ok else 'Connexion impossible (clé invalide ou réseau)'})
 
 
 def list_memory():
@@ -1769,6 +1877,23 @@ def _message(sid, role, text, duration_ms=None, attachments=None):
         db.execute('UPDATE sessions SET updated=? WHERE id=?', (time.time(),sid))
 
 
+def _build_th_history(sid):
+    """Reconstruit l'historique OpenAI d'une session pour TokenHarbor.
+
+    Exclut le dernier message user (c'est le message courant qui va etre
+    envoye par le provider). Les messages d'erreur sont ignores.
+    """
+    with _db() as db:
+        rows = db.execute(
+            "SELECT role,text FROM messages WHERE session_id=? AND role IN ('user','assistant') ORDER BY id ASC",
+            (sid,),
+        ).fetchall()
+    msgs = [{'role': r['role'], 'content': r['text']} for r in rows]
+    if msgs and msgs[-1]['role'] == 'user':
+        msgs = msgs[:-1]
+    return msgs
+
+
 def send(sid, text, attachments_json='[]'):
     try:
         with _LOCK:
@@ -1817,7 +1942,18 @@ def _send(sid, text, attachments_json='[]'):
         renamed=json.loads(rename_session(sid,text[:60]))
         if not renamed.get('ok'): return {'ok':False,'error':renamed.get('error','Renommage impossible')}
     _message(sid, 'user', text, None, saved)
-    provider = SessionProvider(sid, row['conversation_url'])
+    _pcfg = _get_provider_config()
+    if _pcfg.get('type') == 'tokenharbor':
+        from providers.tokenharbor import TokenHarborProvider
+        _th = _pcfg.get('tokenharbor') or {}
+        if not _th.get('keys'):
+            return {'ok': False, 'error': 'TokenHarbor actif mais aucune cle configuree. Ouvrez Parametres > Moteur > TokenHarbor.'}
+        provider = TokenHarborProvider({'provider': {'type': 'tokenharbor', **_th}})
+        provider._conversation = _build_th_history(sid)
+        provider.url = None
+        provider.partial_text = ''
+    else:
+        provider = SessionProvider(sid, row['conversation_url'])
     active_connectors = _active_connectors(sid, row['mode'])
     connector_tools = set()
     if 'google_workspace' in active_connectors:
