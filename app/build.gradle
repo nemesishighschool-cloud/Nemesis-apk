@@ -21,8 +21,8 @@ android {
         minSdk 26
         targetSdk 28
         ndk { abiFilters(*nemesisAbiFilters) }
-        versionCode 19
-        versionName '0.1.0-beta.16'
+        versionCode 20
+        versionName '0.1.0-beta.16.1.0'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     def nemesisKeystore = file(System.getenv("NEMESIS_KEYSTORE") ?: "${rootDir}/app/release.keystore")
