@@ -22,6 +22,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Setup Python 3.11 (Chaquopy host interpreter)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install Android SDK packages
         run: |
           export ANDROID_HOME=${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}
